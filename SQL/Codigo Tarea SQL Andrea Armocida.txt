@@ -1,0 +1,182 @@
+USE WAREHOUSE GROUNDHOG_WH;
+USE DATABASE UCM;
+USE SCHEMA SMART_DESK;
+
+-- Ejercicio 1 
+
+SELECT 
+    CATEGORY, -- Agrupación por categoría
+    SUM(maintenance) AS total_maintenance, 
+    SUM(product) AS total_product,         
+    SUM(parts) AS total_parts,             
+    SUM(support) AS total_support,         
+    SUM(total) AS total_sales,             
+    SUM(units_sold) AS total_units_sold,   
+    SUM(profit) AS total_profit            
+FROM sales
+WHERE account = 'Adabs Entertainment' AND year = '2020'
+GROUP BY CATEGORY;
+
+
+-- Ejercicio 2
+
+SELECT 
+    a.industry, 
+    a.country, 
+    SUM(s.total) AS total_revenue, 
+    SUM(s.units_sold) AS total_units_sold, 
+    SUM(s.profit) AS total_profit, 
+    AVG(s.profit) AS average_profit
+FROM 
+    sales s
+JOIN 
+    accounts a
+    ON s.account = a.account
+WHERE 
+    a.region IN ('APAC', 'EMEA')  
+GROUP BY 
+    a.industry, 
+    a.country
+ORDER BY 
+    a.industry, 
+    a.country;
+
+-- Ejercicio 3
+
+SELECT 
+    a.industry,
+    SUM(s.profit) AS total_profit,
+    CASE 
+        WHEN SUM(s.profit) > 1000000 THEN 'Alto'
+        ELSE 'Normal'
+    END AS profit_classification
+FROM 
+    Sales s
+JOIN 
+    forecasts f ON s.ACCOUNT = f.ACCOUNT
+JOIN 
+    Accounts a ON s.ACCOUNT = a.ACCOUNT
+WHERE 
+    f.year = 2022
+    AND f.forecast > 500000
+GROUP BY 
+    a.industry
+ORDER BY 
+    total_profit DESC;
+
+
+    
+-- Ejercicio 4 
+SELECT 
+    f.category AS product_category,
+    
+    SUM(f.forecast) AS forecast_2022_profit,
+    
+    SUM(CASE 
+            WHEN s.year = 2020 AND s.quarter_of_year = 'Q1' THEN s.profit
+            ELSE 0 
+        END) AS Q1_2020_profit,
+    
+    SUM(CASE 
+            WHEN s.year = 2021 AND s.quarter_of_year = 'Q3' THEN s.profit
+            ELSE 0 
+        END) AS Q3_2021_profit,
+    
+    SUM(CASE 
+            WHEN s.year = 2020 AND s.quarter_of_year = 'Q1' THEN s.profit
+            WHEN s.year = 2021 AND s.quarter_of_year = 'Q3' THEN s.profit
+            ELSE 0
+        END) AS Q1_2020_sumado_Q3_2021_profit,
+   
+    MIN(f.opportunity_age) AS most_recent_opportunity,                  
+    MAX(f.opportunity_age) AS oldest_opportunity
+FROM forecasts f
+LEFT JOIN Sales s
+    ON f.category = s.category
+    AND (
+        (s.year = 2020 AND s.quarter_of_year = 'Q1') 
+        OR (s.year = 2021 AND s.quarter_of_year = 'Q3')
+    )
+LEFT JOIN Accounts a
+    ON s.ACCOUNT = a.ACCOUNT
+GROUP BY f.category
+ORDER BY f.category;
+
+
+
+
+-- Ejercicio 5
+
+SELECT Industry,
+       Quarter,
+       SUM(Profit) AS Ben,
+       SUM(Forecast) AS ForE,
+       SUM(SUM(Profit)) OVER (PARTITION BY Industry ORDER BY Quarter) AS Beneficio_Acumulado,
+       SUM(SUM(Forecast)) OVER (PARTITION BY Industry) AS Pronostico_Acumulado_trimestre,
+       SUM(SUM(Forecast)) OVER (PARTITION BY Industry) AS Pronostico_Acumulado
+FROM SALES S
+JOIN Accounts A ON S.Account = A.Account
+JOIN FORECASTS F ON F.Account = S.Account
+GROUP BY 1, 2
+ORDER BY Industry, Quarter;
+
+---------------------------------------------------------------------------------
+
+-- CASO PRATICO
+
+-- Comparación entre los Total Profit y el Total Forecast
+SELECT 
+    s.category,
+    SUM(CASE WHEN s.year = 2019 THEN s.profit ELSE 0 END) AS total_profit_2019,
+    SUM(CASE WHEN s.year = 2020 THEN s.profit ELSE 0 END) AS total_profit_2020,
+    SUM(CASE WHEN s.year = 2021 THEN s.profit ELSE 0 END) AS total_profit_2021,
+    SUM(CASE WHEN f.year = 2022 THEN f.forecast ELSE 0 END) AS total_forecast_2022
+FROM 
+    Sales s
+LEFT JOIN 
+    Forecasts f ON s.category = f.category
+GROUP BY 
+    s.category
+ORDER BY 
+    s.category;
+
+
+-- Cálculo de ingresos, costos y beneficios de la categoría "Chairs" en la tabla
+
+SELECT 
+    category, 
+    SUM(total) AS Total_Revenue, 
+    SUM( TOTAL- PROFIT) AS Total_Cost, 
+    SUM(profit) AS Total_Profit, 
+    sum(UNITS_SOLD) AS Units_Sold, 
+    AVG(total / units_sold) AS Avg_Revenue_Per_Unit, 
+    AVG(profit / units_sold) AS Avg_Profit_Per_Unit
+FROM Sales
+WHERE category = 'Chairs'
+GROUP BY category;
+
+-- Comparación del rendimiento de "Chairs" con otras categorías:
+
+SELECT 
+    category, 
+    SUM(total) AS Total_Revenue, 
+    SUM(profit) AS Total_Profit, 
+    AVG(total / units_sold) AS Avg_Revenue_Per_Unit, 
+    AVG(profit / units_sold) AS Avg_Profit_Per_Unit, 
+    Total_Revenue- Total_Profit AS Total_Cost,
+FROM Sales
+GROUP BY category
+ORDER BY Avg_Profit_Per_Unit DESC;
+
+--Rendimiento de "Chairs" por región, combinando información de la tabla 
+
+SELECT 
+    a.region, 
+    SUM(s.total) AS Total_Revenue, 
+    SUM(s.profit) AS Total_Profit, 
+    sum(s.Units_Sold) AS Units_Sold
+FROM Sales s
+JOIN Accounts a ON s.ACCOUNT = a.ACCOUNT
+WHERE s.category = 'Chairs'
+GROUP BY a.region
+ORDER BY Total_Profit DESC;
