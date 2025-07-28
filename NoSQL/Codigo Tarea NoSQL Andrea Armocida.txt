@@ -1,0 +1,211 @@
+show dbs
+
+db
+use "Tarea"
+show collections
+
+// #1
+db.movies.find()
+
+// #2
+db.movies.countDocuments()
+
+// #3
+db.movies.insertOne({
+  title: "The Departed",
+  year: 2006,
+  cast: ["Leonardo DiCaprio", "Matt Damon", "Mark Wahlberg"],
+  genres: ["police", "thriller"]
+})
+
+// #4
+db.movies.deleteOne({ title: "The Departed" })
+
+// #5
+db.movies.countDocuments({ cast: { $regex: "\\band\\b", $options: "i" }})
+
+db.movies.countDocuments({ cast: { $regex: "^and$", $options: "i" } })
+
+
+// #6
+db.movies.updateMany(
+  { cast: { $regex: "^and$", $options: "i" } },  
+  { $pull: { cast: { $regex: "^and$", $options: "i" } } }
+)
+
+
+// #7
+db.movies.countDocuments({ cast: { $size: 0 } })
+
+
+// #8
+db.movies.updateMany(
+  { cast: { $size: 0 } }, 
+  { $set: { cast: ["Undefined"] } }
+)
+
+db.movies.find()
+
+// #9
+db.movies.countDocuments({ genres: { $size: 0 } })
+
+// #10
+db.movies.updateMany(
+  { genres: { $size: 0 } }, 
+  { $set: { genres: ["Undefined"] } }
+)
+
+
+// #11
+db.movies.find().sort({ year: -1 }).limit(1).pretty()
+
+// #12
+db.movies.aggregate([ 
+  { $match: { year: { $gte: 1999, $lte: 2018 } } }, 
+  { $group: { _id: null, total: { $sum: 1 } } }
+]);
+
+
+
+
+// #13                        
+db.movies.aggregate([
+  { $match: { year: { $gte: 1960, $lte: 1969 } } },  
+  { $group: { _id: null, total: { $sum: 1 } } }  
+]);
+
+
+// #14
+db.movies.aggregate([
+  { $group: { _id: "$year", total_pelis: { $sum: 1 } } }  
+]);
+
+db.movies.aggregate([
+  { $group: { _id: "$year", total_pelis: { $sum: 1 } } },
+  { $sort: { total_pelis: -1 } }  // Ordena de mayor a menor
+]);
+
+db.movies.aggregate([
+  { $group: { _id: "$year", total_pelis: { $sum: 1 } } },
+  { $sort: { total_pelis: -1 } },  // Ordena de mayor a menor
+  { $limit: 1 }  // Limita al año con más películas
+]);
+
+
+// #15
+db.movies.aggregate([
+  { $group: { _id: "$year", total_pelis: { $sum: 1 } } }  ]);
+
+db.movies.aggregate([
+  { $group: { _id: "$year", total_pelis: { $sum: 1 } } },
+  { $sort: { total_pelis: 1 } }  // Ordena de menor a mayor
+]);
+
+db.movies.aggregate([
+  { $group: { _id: "$year", total_pelis: { $sum: 1 } } },
+  { $sort: { total_pelis: 1 } },
+  { $limit: 1 }  // Limita al año con menos películas
+]);
+
+
+// #16
+db.movies.aggregate([
+  { $unwind: "$cast" },  
+  { $project: { _id: 0, actor: "$cast", movie: "$title", genres: "$genres",  year:  "$year" } },  
+  { $out: "actors" }  
+])
+
+
+db.actors.countDocuments()
+
+// #17
+db.actors.aggregate([
+  { $match: { actor: { $ne: "Undefined" } } },  
+  { $group: { _id: "$actor", num_peliculas: { $sum: 1 } } },  
+  { $sort: { num_peliculas: -1 } },  
+  { $limit: 5 }  
+])
+
+// #18
+db.actors.aggregate([
+  { $group: { 
+      _id: { movie: "$movie", year: "$year" },  
+      total_actores: { $sum: 1 }  
+  }},
+  { $sort: { total_actores: -1 } },  
+  { $limit: 5 }  
+])
+
+
+// #19
+db.actors.aggregate([
+  { $match: { actor: { $ne: "Undefined" } } },  
+  { $group: { _id: "$actor", inicio: { $min: "$year" }, fin: { $max: "$year" } } },
+  { $project: { actor: "$_id", inicio: 1, fin: 1, años_trabajados: { $subtract: ["$fin", "$inicio"] } } },
+  { $sort: { años_trabajados: -1 } },  
+  { $limit: 5 }  
+]);
+
+
+
+// #20
+
+
+db.actors.aggregate([
+  { $unwind: "$genres" },  
+  { $project: { _id: 0, genres: "$genres", actor: "$actor", movie: "$movie", year: "$year" } },  
+  { $out: "genres" }  
+])
+
+db.genres.countDocuments()
+
+
+// #21
+
+db.genres.aggregate([
+  { $group: { _id: { year: "$year", genre: "$genres" }, totalMovies: { $addToSet: "$movie" } } },
+  { $project: { year: "$_id.year", genre: "$_id.genre", totalMoviesCount: { $size: "$totalMovies" } } },
+  { $sort: { totalMoviesCount: -1 } },
+  { $limit: 5 }
+])
+
+
+// #22
+
+db.genres.aggregate([
+  { $match: { actor: { $ne: "Undefined" } } },
+  { $group: { _id: "$actor", uniqueGenres: { $addToSet: "$genres" } } },
+  { $project: { actor: "$_id", genres: "$uniqueGenres", genreCount: { $size: "$uniqueGenres" } } },
+  { $sort: { genreCount: -1 } },
+  { $limit: 5 }
+])
+
+
+// #23
+db.genres.aggregate([
+  { $group: { _id: { movie: "$movie", year: "$year" }, uniqueGenres: { $addToSet: "$genres" } } },
+  { $project: { movie: "$_id.movie", year: "$_id.year", genres: "$uniqueGenres", genreCount: { $size: "$uniqueGenres" } } },
+  { $sort: { genreCount: -1 } },
+  { $limit: 5 }
+])
+
+// Ejercicio libre #1
+
+db.genres.aggregate([
+  { $match: { actor: { $ne: "Undefined" } } },
+  { $group: { _id: { actor: "$actor", genre: "$genres" }, movieCount: { $sum: 1 } } },
+  { $sort: { movieCount: -1 } },
+  { $limit: 5 }
+])
+
+//Ejercicio libre #2
+
+
+db.genres.aggregate([
+  { $match: { actor: { $ne: "Undefined" } } }
+  { $group: { _id: "$actor", movieCount: { $addToSet: "$movie" } } },
+  { $project: { actor: "$_id", totalMovies: { $size: "$movieCount" } } },
+  { $sort: { totalMovies: -1 } },
+  { $limit: 5 }
+])
+
